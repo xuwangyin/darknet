@@ -598,16 +598,13 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
     char *input = buff;
     int j;
     float nms=.4;
-    while(1){
-        if(filename){
-            strncpy(input, filename, 256);
-        } else {
-            printf("Enter Image Path: ");
-            fflush(stdout);
-            input = fgets(input, 256, stdin);
-            if(!input) return;
-            strtok(input, "\n");
-        }
+
+    FILE* file = fopen("image_files.txt", "r"); /* should check the result */
+    char line[256];
+    while (fgets(line, sizeof(line), file)) {
+        strtok(line, "\n");
+        strncpy(input, line, 256);
+
         image im = load_image_color(input,0,0);
         image sized = letterbox_image(im, net.w, net.h);
         //image sized = resize_image(im, net.w, net.h);
@@ -623,29 +620,19 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
         float *X = sized.data;
         time=clock();
         network_predict(net, X);
-        printf("%s: Predicted in %f seconds.\n", input, sec(clock()-time));
         get_region_boxes(l, 1, 1, thresh, probs, boxes, 0, 0, hier_thresh, 0);
         if (l.softmax_tree && nms) do_nms_obj(boxes, probs, l.w*l.h*l.n, l.classes, nms);
         else if (nms) do_nms_sort(boxes, probs, l.w*l.h*l.n, l.classes, nms);
+        printf("{\"file_path\":\"%s\", ", input);
         draw_detections(sized, l.w*l.h*l.n, thresh, boxes, probs, names, alphabet, l.classes);
-        if(outfile){
-            save_image(sized, outfile);
-        }
-        else{
-            save_image(sized, "predictions");
-            show_image(sized, "predictions");
-#ifdef OPENCV
-            cvWaitKey(0);
-            cvDestroyAllWindows();
-#endif
-        }
-
+        printf("}\n");
         free_image(im);
         free_image(sized);
         free(boxes);
         free_ptrs((void **)probs, l.w*l.h*l.n);
-        if (filename) break;
     }
+
+    fclose(file);
 }
 
 void run_detector(int argc, char **argv)

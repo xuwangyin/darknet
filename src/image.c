@@ -175,6 +175,9 @@ void draw_detections(image im, int num, float thresh, box *boxes, float **probs,
 {
     int i;
 
+    unsigned long long *bbox_encode = calloc(num, sizeof(unsigned long long));
+    int *full_categories = calloc(num, sizeof(int));
+    int objnum = 0;
     for(i = 0; i < num; ++i){
         int class = max_index(probs[i], classes);
         float prob = probs[i][class];
@@ -187,7 +190,6 @@ void draw_detections(image im, int num, float thresh, box *boxes, float **probs,
                 alphabet = 0;
             }
 
-            printf("%s: %.0f%%\n", names[class], prob*100);
             int offset = class*123457 % classes;
             float red = get_color(2,offset,classes);
             float green = get_color(1,offset,classes);
@@ -211,13 +213,36 @@ void draw_detections(image im, int num, float thresh, box *boxes, float **probs,
             if(top < 0) top = 0;
             if(bot > im.h-1) bot = im.h-1;
 
-            draw_box_width(im, left, top, right, bot, width, red, green, blue);
-            if (alphabet) {
-                image label = get_label(alphabet, names[class], (im.h*.03)/10);
-                draw_label(im, top + width, left, label, rgb);
-            }
+            unsigned long long left_ = left;
+            unsigned long long top_ = top;
+
+            bbox_encode[objnum] = left_ * 1e9 + top_ * 1e6 + (right-left)*1e3 + bot-top;
+            full_categories[objnum] = class+1;
+
+            objnum++;
         }
     }
+
+    printf("\"bboxes\": [");
+    for(i = 0; i < objnum; ++i){
+      if (i < objnum - 1)
+        printf("%llu,", bbox_encode[i]);
+      else
+        printf("%llu", bbox_encode[i]);
+    }
+    printf("], ");
+    printf("\"full_categories\": [");
+    for(i = 0; i < objnum; ++i){
+      if (i < objnum - 1)
+        printf("%d,", full_categories[i]);
+      else
+        printf("%d", full_categories[i]);
+    }
+    printf("]");
+
+    free(bbox_encode);
+    free(full_categories);
+
 }
 
 void transpose_image(image im)
